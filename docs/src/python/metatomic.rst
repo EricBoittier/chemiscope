@@ -72,3 +72,29 @@ Conversion conventions
   selection/conversion; they are not silently discarded.
 * NumPy and host-convertible Torch/JAX arrays are supported. Conversion does not
   change the input System's array backend. Raw DLPack arrays must be host-accessible.
+
+Model features
+--------------
+
+Pass a Core model object to the existing featurizer API:
+
+.. code-block:: python
+
+    import metatomic
+
+    metatomic.load_plugin("/path/to/model-plugin.so")
+    model = metatomic.load_model("/path/to/model")
+    featurizer = chemiscope.metatomic_featurizer(
+        model, batch_size=16, check_consistency=True,
+    )
+    chemiscope.explore(structures, featurizer=featurizer)
+
+The model must declare a ``feature`` output for ``system`` samples, or ``atom``
+samples when environments are selected. ``variant="name"`` selects
+``feature/name``. Outputs are aligned by sample labels before displaying them.
+Pair lists are computed with Vesin in model length units. Requested custom inputs
+are copied from each System; missing inputs raise an error. Input data must already
+use the units requested by the model. Original systems are not mutated.
+
+The Core featurizer currently runs CPU models with NumPy inputs. It accepts Core
+Systems and ASE Atoms; the ``length_unit`` argument applies only to ASE objects.

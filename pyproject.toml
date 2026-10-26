@@ -77,10 +77,12 @@ docstring-code-format = true
 metatomic = [
     "metatomic-core >=0.2.0.dev0,<0.3",
     "ctypes-dlpack",
+    "vesin >=0.5.4,<0.7",
 ]
 explore = [
     "upet>=0.2.6,<0.3",
     "metatomic-torch >=0.1.17,<0.2",
+    "vesin >=0.5.4,<0.7",
     "huggingface_hub",
 ]
 streamlit = ["streamlit>=1.25"]
