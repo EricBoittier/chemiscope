@@ -112,6 +112,38 @@ class TestCore(unittest.TestCase):
         with self.assertWarnsRegex(UserWarning, "every System"):
             self.assertEqual(chemiscope.extract_properties(structures + [system()]), {})
 
+    def test_custom_data_validation(self):
+        structures = [system(), system()]
+        t = tensor([[1], [2]], [[0, 0], [0, 1]])
+        structures[0].add_custom_data("test::x", t.copy())
+        changed_labels = TensorMap(
+            Labels.single(),
+            [
+                TensorBlock(
+                    np.ones((2, 1)), t.block(0).samples, [], Labels.range("other", 1)
+                )
+            ],
+        )
+        structures[1].add_custom_data("test::x", changed_labels)
+        with self.assertRaisesRegex(ValueError, "inconsistent custom data layout"):
+            chemiscope.extract_properties(structures)
+        multiple = TensorMap(
+            Labels.range("key", 2), [t.block(0).copy(), t.block(0).copy()]
+        )
+        with self.assertRaisesRegex(ValueError, "exactly one block"):
+            chemiscope.metatensor_to_property(multiple, [structures[0]])
+        block = t.block(0).copy()
+        block.add_gradient(
+            "test",
+            TensorBlock(
+                np.ones((2, 1)), Labels.range("sample", 2), [], t.block(0).properties
+            ),
+        )
+        with self.assertRaisesRegex(ValueError, "gradients explicitly"):
+            chemiscope.metatensor_to_property(
+                TensorMap(Labels.single(), [block]), [structures[0]]
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

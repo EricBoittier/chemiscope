@@ -93,7 +93,7 @@ def metatensor_to_property(
     """
     if len(tensor) != 1:
         raise ValueError("expected a TensorMap with exactly one block")
-    block = tensor.block()
+    block = tensor.block(0)
     if block.gradients_list():
         raise ValueError("extract TensorMap gradients explicitly before conversion")
     names = block.samples.names
@@ -128,10 +128,9 @@ def _metatomic_extract_properties(
     only: Sequence[str] | None,
     environments: Sequence[Environment] | None,
 ) -> dict[str, _Property]:
-    names = set(structures[0].known_custom_data())
-    for system in structures[1:]:
-        names &= set(system.known_custom_data())
-    all_names = set().union(*(s.known_custom_data() for s in structures))
+    custom_names = [set(s.known_custom_data()) for s in structures]
+    names = set.intersection(*custom_names)
+    all_names = set.union(*custom_names)
     if names != all_names:
         warnings.warn(
             "only custom data present in every System is extracted", stacklevel=3
@@ -143,13 +142,14 @@ def _metatomic_extract_properties(
             metatensor_to_property(t, [s])
             for t, s in zip(tensors, structures, strict=True)
         ]
-        first = tensors[0].block()
+        first = tensors[0].block(0)
+        components, labels = first.components, first.properties
         for tensor, part in zip(tensors[1:], parts[1:], strict=True):
-            block = tensor.block()
+            block = tensor.block(0)
             if (
                 part["target"] != parts[0]["target"]
-                or block.components != first.components
-                or block.properties != first.properties
+                or block.components != components
+                or block.properties != labels
             ):
                 raise ValueError(f"inconsistent custom data layout for '{name}'")
         values = np.concatenate([p["values"] for p in parts])
