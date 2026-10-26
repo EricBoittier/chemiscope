@@ -230,7 +230,7 @@ def explore(
     elif callable(featurizer):
         merged_properties["features"] = featurizer(structures, environments)
 
-    merged_properties.update(extract_properties(structures, environments))
+    merged_properties.update(extract_properties(structures, environments=environments))
 
     if properties is not None:
         merged_properties.update(properties)

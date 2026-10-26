@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 
@@ -72,6 +73,44 @@ class TestCore(unittest.TestCase):
             ase = chemiscope.create_input([atoms])["structures"][0]
             core.pop("elements")
             self.assertEqual(core, ase)
+
+    def test_properties_and_selection(self):
+        structures = [system(), system()]
+        for i, s in enumerate(structures):
+            s.add_custom_data(
+                "test::charge", tensor([[10 * i + 2], [10 * i + 1]], [[0, 1], [0, 0]])
+            )
+        envs = [(1, 1, 3), (0, 0, 3), (1, 1, 3)]
+        prop = chemiscope.extract_properties(structures, environments=envs)[
+            "test::charge"
+        ]
+        np.testing.assert_array_equal(prop["values"].ravel(), [12, 1, 12])
+        self.assertEqual(prop["target"], "atom")
+        self.assertEqual(chemiscope.extract_properties(structures, only=["absent"]), {})
+        with patch("chemiscope.explore.show") as show:
+            chemiscope.explore(structures, environments=envs, mode="structure")
+        np.testing.assert_array_equal(
+            show.call_args.kwargs["properties"]["test::charge"]["values"],
+            prop["values"],
+        )
+
+    def test_tensor_validation(self):
+        structures = [system()]
+        t = tensor([[4], [3]], [[0, 1], [0, 0]])
+        np.testing.assert_array_equal(
+            chemiscope.metatensor_to_property(t, structures)["values"].ravel(), [3, 4]
+        )
+        with self.assertRaisesRegex(ValueError, "missing TensorMap sample"):
+            chemiscope.metatensor_to_property(tensor([[1]], [[0, 0]]), structures)
+        with self.assertRaisesRegex(ValueError, "samples must"):
+            chemiscope.metatensor_to_property(
+                tensor([[1]], [[0]], names=["atom"]), structures
+            )
+        with self.assertRaisesRegex(ValueError, "invalid environment"):
+            chemiscope.metatensor_to_property(t, structures, environments=[(0, -1, 3)])
+        structures[0].add_custom_data("test::x", t)
+        with self.assertWarnsRegex(UserWarning, "every System"):
+            self.assertEqual(chemiscope.extract_properties(structures + [system()]), {})
 
 
 if __name__ == "__main__":

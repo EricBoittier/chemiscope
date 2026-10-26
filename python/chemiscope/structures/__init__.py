@@ -24,8 +24,10 @@ from ._mda import (  # noqa: F401
 )
 from ._metatomic import (  # noqa: F401
     _metatomic_all_atomic_environments,
+    _metatomic_extract_properties,
     _metatomic_to_json,
     _metatomic_valid_structures,
+    metatensor_to_property,
 )
 from ._shapes import (  # noqa: F401
     arrow_from_vector,
@@ -166,10 +168,10 @@ def extract_properties(
 
     structures, adapter = _guess_adapter(structures)
 
-    if adapter == "metatomic":
-        return {}
     if adapter == "ASE":
         return _ase_extract_properties(structures, only, environments)
+    elif adapter == "metatomic":
+        return _metatomic_extract_properties(structures, only, environments)
     elif adapter == "chemfiles":
         return _chemfiles_extract_properties(structures, only, environments)
     elif adapter == "mda":
