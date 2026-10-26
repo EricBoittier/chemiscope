@@ -118,3 +118,7 @@ use the units requested by the model. Original systems are not mutated.
 
 The Core featurizer currently runs CPU models with NumPy inputs. It accepts Core
 Systems and ASE Atoms; the ``length_unit`` argument applies only to ASE objects.
+Existing TorchScript models, ecumetric, and UPET continue using the existing Torch
+path and its dependencies (``chemiscope[explore]``). Existing TorchScript file paths and
+``extensions_directory`` keep their existing behavior. Load Core models with
+``metatomic.load_model`` and pass the resulting object to the featurizer.
