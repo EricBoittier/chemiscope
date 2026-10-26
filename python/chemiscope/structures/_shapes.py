@@ -1,6 +1,69 @@
-from typing import Optional
+from typing import Any, Literal, Optional
 
 import numpy as np
+from numpy.typing import ArrayLike
+
+
+def vectors_to_arrows(
+    values: ArrayLike,
+    *,
+    target: Literal["atom", "structure"] = "atom",
+    scale: float = 1.0,
+    radius: float = 0.1,
+    head_radius_scale: float = 1.75,
+    head_length_scale: float = 2.0,
+) -> dict[str, Any]:
+    """Create arrows from an (N, 3) array, in atom or structure order.
+
+    ``target`` is ``atom`` or ``structure``. Supply all atoms, even when the map
+    shows selected environments. Styling and units follow :py:func:`arrow_from_vector`.
+    """
+    values = np.asarray(values)
+    if target not in ("atom", "structure") or values.ndim != 2 or values.shape[1] != 3:
+        raise ValueError("expected (N, 3) vectors and target 'atom' or 'structure'")
+    return {
+        "kind": "arrow",
+        "parameters": {
+            "global": {
+                "baseRadius": radius,
+                "headRadius": radius * head_radius_scale,
+                "headLength": radius * head_length_scale,
+            },
+            target: [{"vector": (v * scale).tolist()} for v in values],
+        },
+    }
+
+
+def tensors_to_ellipsoids(
+    values: ArrayLike,
+    *,
+    target: Literal["atom", "structure"] = "atom",
+    scale: float = 1.0,
+    force_positive: bool = False,
+) -> dict[str, Any]:
+    """Create ellipsoids from (N, 6), (N, 9), or (N, 3, 3) arrays.
+
+    Supply all atoms or structures in order. Six components use xx, yy, zz, xy,
+    xz, yz; nine use row-major order. See :py:func:`ellipsoid_from_tensor` for units.
+    """
+    values = np.asarray(values)
+    if target not in ("atom", "structure") or values.shape[1:] not in (
+        (6,),
+        (9,),
+        (3, 3),
+    ):
+        raise ValueError(
+            "expected (N, 6), (N, 9), or (N, 3, 3) tensors and a valid target"
+        )
+    return {
+        "kind": "ellipsoid",
+        "parameters": {
+            target: [
+                ellipsoid_from_tensor(v, scale=scale, force_positive=force_positive)
+                for v in values
+            ]
+        },
+    }
 
 
 def arrow_from_vector(

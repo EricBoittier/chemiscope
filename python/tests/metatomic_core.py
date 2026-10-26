@@ -1,4 +1,7 @@
+import json
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
@@ -111,6 +114,31 @@ class TestCore(unittest.TestCase):
         structures[0].add_custom_data("test::x", t)
         with self.assertWarnsRegex(UserWarning, "every System"):
             self.assertEqual(chemiscope.extract_properties(structures + [system()]), {})
+
+    def test_shapes_and_serialization(self):
+        s = system()
+        arrows = chemiscope.vectors_to_arrows([[1, 2, 3], [4, 5, 6]], scale=2)
+        self.assertEqual(arrows["parameters"]["atom"][0]["vector"], [2, 4, 6])
+        ellipsoids = chemiscope.tensors_to_ellipsoids([np.eye(3), 4 * np.eye(3)])
+        np.testing.assert_allclose(
+            ellipsoids["parameters"]["atom"][1]["semiaxes"], [2, 2, 2]
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "data.json"
+            chemiscope.write_input(
+                str(path), [s], shapes={"forces": arrows, "alpha": ellipsoids}
+            )
+            data = json.loads(path.read_text())
+            self.assertEqual(data["structures"][0]["size"], 2)
+            external = chemiscope.write_external_structures(
+                [s], prefix=str(Path(directory) / "system")
+            )
+            self.assertEqual(external[0]["size"], 2)
+        for values in ([[1, 2]], [1, 2, 3]):
+            with self.assertRaises(ValueError):
+                chemiscope.vectors_to_arrows(values)
+        with self.assertRaises(ValueError):
+            chemiscope.tensors_to_ellipsoids([[1, 2, 3]])
 
 
 if __name__ == "__main__":
