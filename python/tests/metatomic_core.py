@@ -79,6 +79,14 @@ class TestCore(unittest.TestCase):
             core.pop("elements")
             self.assertEqual(core, ase)
 
+    def test_core_systems_with_torch_model(self):
+        try:
+            from explore import sum_of_positions_model
+        except ImportError:
+            self.skipTest("requires Torch and ASE")
+        f = chemiscope.metatomic_featurizer(sum_of_positions_model())
+        np.testing.assert_allclose(f([system("nm")], None), [[10, 0, 0]])
+
     def test_properties_and_selection(self):
         structures = [system(), system()]
         for i, s in enumerate(structures):

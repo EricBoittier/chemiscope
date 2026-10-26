@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from numpy.typing import NDArray
 
-from ..structures._metatomic import Environment
+from ..structures._metatomic import Environment, _as_numpy, _metatomic_valid_structures
 
 
 if TYPE_CHECKING:
@@ -187,7 +187,23 @@ class metatomic_featurizer:
     ) -> NDArray[np.floating[Any]]:
         if self._core is not None:
             return self._core(structures, environments)
-        systems = mta.systems_to_torch(structures)
+        structures, is_core = _metatomic_valid_structures(structures)
+        if is_core:
+            from metatomic.utils import unit_conversion_factor
+
+            systems = []
+            for system in structures:
+                factor = unit_conversion_factor(system.length_unit, self.length_unit)
+                systems.append(
+                    mta.System(
+                        types=torch.tensor(_as_numpy(system.types)),
+                        positions=torch.tensor(_as_numpy(system.positions) * factor),
+                        cell=torch.tensor(_as_numpy(system.cell) * factor),
+                        pbc=torch.tensor(_as_numpy(system.pbc)),
+                    )
+                )
+        else:
+            systems = mta.systems_to_torch(structures)
         calculators = vesin_metatomic.neighbor_lists_for_model(
             self.length_unit,
             self.model,

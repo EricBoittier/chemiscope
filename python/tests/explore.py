@@ -1,4 +1,6 @@
+import tempfile
 import unittest
+from pathlib import Path
 from typing import Dict, List, Optional
 
 import ase.build
@@ -54,6 +56,16 @@ def sum_of_positions_model():
 
 
 class TestExplore(unittest.TestCase):
+    def test_saved_model(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "model.pt"
+            sum_of_positions_model().save(path)
+            featurizer = chemiscope.metatomic_featurizer(path)
+            np.testing.assert_allclose(
+                featurizer(STRUCTURES, None),
+                [atoms.positions.sum(axis=0) for atoms in STRUCTURES],
+            )
+
     def test_batches(self):
         expected = np.array([atoms.positions.sum(axis=0) for atoms in STRUCTURES])
 
