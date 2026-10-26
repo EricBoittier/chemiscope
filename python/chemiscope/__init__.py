@@ -15,6 +15,8 @@ from .structures import (  # noqa: F401
     ellipsoid_from_tensor,
     extract_properties,
     metatensor_to_property,
+    tensors_to_ellipsoids,
+    vectors_to_arrows,
 )
 from .version import __version__  # noqa: F401
 from .widget import show, show_input  # noqa
