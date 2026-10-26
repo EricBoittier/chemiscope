@@ -3,10 +3,11 @@ Metatomic Core
 
 Core ``metatomic.System`` objects work with ``show``, ``create_input``,
 ``write_input``, ``write_external_structures`` and ``all_atomic_environments``.
-ASE is not needed for this path. Install ``chemiscope[metatomic]``.
+ASE is not needed for this path. Install ``chemiscope[metatomic]`` and install
+SciPy if you want tensor ellipsoids.
 
-Structures and properties
--------------------------
+Structures, properties and shapes
+---------------------------------
 
 This example constructs a system and attaches a vector property. Custom data uses
 local sample labels: the system index is always zero within each System. Atom
@@ -37,13 +38,21 @@ labels, even when the stored rows are shuffled.
     structures = [system]
     properties = {"forces": chemiscope.extract_properties(structures)["custom::forces"]}
     properties["forces"]["units"] = "eV/angstrom"
+    arrows = chemiscope.vectors_to_arrows(properties["forces"]["values"], scale=1)
     chemiscope.write_input(
         "water.json", structures=structures, properties=properties,
         environments=chemiscope.all_atomic_environments(structures),
+        shapes={"forces": arrows},
+        settings={"structure": [{"shape": "forces"}]},
     )
 
 The file uses the standard Chemiscope JSON format and can be loaded on the homepage.
 Replace ``write_input("water.json", ...)`` with ``show(...)`` for a notebook widget.
+For polarizabilities, pass arrays of shape ``(N, 6)``, ``(N, 9)`` or ``(N, 3, 3)``
+to ``tensors_to_ellipsoids``. Shape arrays cover all atoms, even when the map uses
+only selected environments. The scale maps property units to display lengths in
+Angstroms. Energy position gradients must be negated to obtain forces.
+
 Conversion conventions
 ----------------------
 

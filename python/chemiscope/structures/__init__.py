@@ -32,6 +32,8 @@ from ._metatomic import (  # noqa: F401
 from ._shapes import (  # noqa: F401
     arrow_from_vector,
     ellipsoid_from_tensor,
+    tensors_to_ellipsoids,
+    vectors_to_arrows,
 )
 from ._stk import (  # noqa: F401
     _stk_all_atomic_environments,

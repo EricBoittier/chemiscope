@@ -19,7 +19,9 @@ Data management
 
 .. autofunction:: chemiscope.metatensor_to_property
 
+.. autofunction:: chemiscope.vectors_to_arrows
 
+.. autofunction:: chemiscope.tensors_to_ellipsoids
 
 .. autofunction:: chemiscope.all_atomic_environments
 
