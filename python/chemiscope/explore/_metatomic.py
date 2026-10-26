@@ -1,7 +1,22 @@
+from __future__ import annotations
+
 import warnings
+from collections.abc import Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
+from numpy.typing import NDArray
+
+from ..structures._metatomic import Environment
+
+
+if TYPE_CHECKING:
+    from ase import Atoms
+    from metatomic import BaseModel, System
+    from metatomic.torch import AtomisticModel
+    from metatomic.torch import System as TorchSystem
+    from torch.jit import ScriptModule
 
 
 mta = None
@@ -18,6 +33,8 @@ class metatomic_featurizer:
     :param model: model to use for the calculation. It can be a file path, a Python
         instance of :py:class:`metatomic.torch.AtomisticModel`, or the output of
         :py:func:`torch.jit.script` on :py:class:`metatomic.torch.AtomisticModel`.
+        Core ``metatomic.BaseModel`` objects are also accepted, including models
+        loaded with ``metatomic.load_model``.
     :param extensions_directory: a directory where model extensions are located
     :param check_consistency: should we check the model for consistency when running,
         defaults to False.
@@ -68,15 +85,37 @@ class metatomic_featurizer:
 
     def __init__(
         self,
-        model,
+        model: str | Path | BaseModel | AtomisticModel | ScriptModule,
         *,
-        extensions_directory=None,
-        check_consistency=None,
-        device=None,
-        length_unit="Angstrom",
-        variant=None,
-        batch_size=None,
-    ):
+        extensions_directory: str | Path | None = None,
+        check_consistency: bool | None = None,
+        device: str | None = None,
+        length_unit: str = "Angstrom",
+        variant: str | None = None,
+        batch_size: int | None = None,
+    ) -> None:
+        if batch_size is not None and batch_size <= 0:
+            raise ValueError("batch_size must be positive")
+        try:
+            from metatomic import BaseModel
+        except ImportError:
+            core_model = False
+        else:
+            core_model = isinstance(model, BaseModel)
+        self._core = None
+        if core_model:
+            from ._metatomic_core import CoreFeaturizer
+
+            self._core = CoreFeaturizer(
+                model,
+                variant=variant,
+                device=device,
+                check_consistency=check_consistency,
+                length_unit=length_unit,
+            )
+            self.model = model
+            self.batch_size = batch_size
+            return
         # Check if dependencies were installed
         global mta, mts, torch, vesin_metatomic
         if mta is None or mts is None or torch is None or vesin_metatomic is None:
@@ -126,7 +165,11 @@ class metatomic_featurizer:
                 )
             )
 
-    def __call__(self, structures, environments):
+    def __call__(
+        self,
+        structures: Sequence[System] | Sequence[Atoms] | Sequence[TorchSystem],
+        environments: Sequence[Environment] | None,
+    ) -> NDArray[np.floating[Any]]:
         if environments is not None or self.batch_size is None:
             return self._compute(structures, environments)
 
@@ -137,7 +180,13 @@ class metatomic_featurizer:
 
         return np.concatenate(features)
 
-    def _compute(self, structures, environments):
+    def _compute(
+        self,
+        structures: Sequence[System] | Sequence[Atoms] | Sequence[TorchSystem],
+        environments: Sequence[Environment] | None,
+    ) -> NDArray[np.floating[Any]]:
+        if self._core is not None:
+            return self._core(structures, environments)
         systems = mta.systems_to_torch(structures)
         calculators = vesin_metatomic.neighbor_lists_for_model(
             self.length_unit,
@@ -188,7 +237,9 @@ class metatomic_featurizer:
         return outputs[self.feature_output_name].block().values.detach().cpu().numpy()
 
 
-def _find_best_device(supported_devices, requested_device):
+def _find_best_device(
+    supported_devices: Sequence[str], requested_device: str | None
+) -> str:
     """
     Find the best device from the list of ``devices`` that is available to the current
     PyTorch installation.

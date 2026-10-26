@@ -1,5 +1,7 @@
+import inspect
 import json
 import tempfile
+import textwrap
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -139,6 +141,68 @@ class TestCore(unittest.TestCase):
                 chemiscope.vectors_to_arrows(values)
         with self.assertRaises(ValueError):
             chemiscope.tensors_to_ellipsoids([[1, 2, 3]])
+
+    def test_features_and_batches(self):
+        class Model(mta.NumpyModel):
+            def requested_pair_lists(self, outputs):
+                return [mta.PairListOptions(cutoff=1.5, full_list=False)]
+
+            def capabilities(self):
+                return mta.ModelCapabilities(
+                    atomic_types=[1, 8],
+                    interaction_range=1.5,
+                    length_unit="angstrom",
+                    supported_devices=["cpu"],
+                    dtype="float64",
+                    outputs=[
+                        mta.Quantity(name="feature", unit="", sample_kind=kind)
+                        for kind in ("atom", "system")
+                    ],
+                )
+
+            def metadata(self):
+                return mta.ModelMetadata()
+
+            def execute_inner(self, systems, selected_atoms, requested_outputs):
+                for s in systems:
+                    pairs = s.pairs(self.requested_pair_lists(requested_outputs)[0])
+                    assert len(pairs.samples) == int(s.positions[1, 0] < 1.5)
+                if requested_outputs[0].sample_kind == "system":
+                    rows = [(i,) for i in reversed(range(len(systems)))]
+                    values = [systems[i].positions.sum(axis=0) for (i,) in rows]
+                    return [tensor(values, rows, names=["system"])]
+                rows = list(reversed(selected_atoms.values.tolist()))
+                return [tensor([systems[i].positions[a] for i, a in rows], rows)]
+
+        structures = [system(), system("nm"), system()]
+        for batch_size in (None, 1, 2):
+            f = chemiscope.metatomic_featurizer(
+                Model(), batch_size=batch_size, check_consistency=True
+            )
+            np.testing.assert_allclose(
+                f(structures, None), [[1, 0, 0], [10, 0, 0], [1, 0, 0]]
+            )
+            np.testing.assert_allclose(
+                f(structures, [(1, 1, 3), (0, 0, 3), (1, 1, 3)]),
+                [[10, 0, 0], [0, 0, 0], [10, 0, 0]],
+            )
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "model.py"
+            path.write_text(
+                "import numpy as np\nimport metatomic as mta\n"
+                "from metatensor import Labels, TensorBlock, TensorMap\n"
+                + inspect.getsource(tensor)
+                + "\n"
+                + textwrap.dedent(inspect.getsource(Model))
+                + "\nmodel = Model()\n"
+            )
+            mta.load_plugin(mta.utils.python_plugin_path)
+            f = chemiscope.metatomic_featurizer(mta.load_model(str(path)))
+            np.testing.assert_allclose(f([system()], None), [[1, 0, 0]])
+        with self.assertRaisesRegex(ValueError, "CPU"):
+            chemiscope.metatomic_featurizer(Model(), device="cuda")
+        with self.assertRaisesRegex(ValueError, "does not declare"):
+            chemiscope.metatomic_featurizer(Model(), variant="missing")
 
     def test_batched_properties(self):
         structures = [system(), system()]

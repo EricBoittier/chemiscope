@@ -92,3 +92,29 @@ atomic properties also include an ``atom`` column. Convert each batched output o
 Here ``outputs`` maps property names to single-block TensorMaps. For large input
 files, read bounded batches and export each batch separately; system sample indices
 must refer to the structures in that batch.
+
+Model features
+--------------
+
+Pass a Core model object to the existing featurizer API:
+
+.. code-block:: python
+
+    import metatomic
+
+    metatomic.load_plugin("/path/to/model-plugin.so")
+    model = metatomic.load_model("/path/to/model")
+    featurizer = chemiscope.metatomic_featurizer(
+        model, batch_size=16, check_consistency=True,
+    )
+    chemiscope.explore(structures, featurizer=featurizer)
+
+The model must declare a ``feature`` output for ``system`` samples, or ``atom``
+samples when environments are selected. ``variant="name"`` selects
+``feature/name``. Outputs are aligned by sample labels before displaying them.
+Pair lists are computed with Vesin in model length units. Requested custom inputs
+are copied from each System; missing inputs raise an error. Input data must already
+use the units requested by the model. Original systems are not mutated.
+
+The Core featurizer currently runs CPU models with NumPy inputs. It accepts Core
+Systems and ASE Atoms; the ``length_unit`` argument applies only to ASE objects.
