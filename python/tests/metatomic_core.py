@@ -112,6 +112,20 @@ class TestCore(unittest.TestCase):
         with self.assertWarnsRegex(UserWarning, "every System"):
             self.assertEqual(chemiscope.extract_properties(structures + [system()]), {})
 
+    def test_batched_properties(self):
+        structures = [system(), system()]
+        for i, s in enumerate(structures):
+            s.add_custom_data("test::x", tensor([[i], [i + 2]], [[0, 1], [0, 0]]))
+        batched = tensor([[1], [2], [3], [0]], [[1, 1], [0, 0], [1, 0], [0, 1]])
+        for envs in (None, [(1, 0, 3), (0, 1, 3), (1, 0, 3)]):
+            expected = chemiscope.extract_properties(structures, environments=envs)
+            actual = chemiscope.metatensor_to_property(
+                batched, structures, environments=envs
+            )
+            np.testing.assert_array_equal(
+                actual["values"], expected["test::x"]["values"]
+            )
+
     def test_custom_data_validation(self):
         structures = [system(), system()]
         t = tensor([[1], [2]], [[0, 0], [0, 1]])
@@ -132,6 +146,10 @@ class TestCore(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "exactly one block"):
             chemiscope.metatensor_to_property(multiple, [structures[0]])
+        s = system()
+        s.add_custom_data("test::multiple", multiple)
+        with self.assertRaisesRegex(ValueError, "exactly one block"):
+            chemiscope.extract_properties([s])
         block = t.block(0).copy()
         block.add_gradient(
             "test",

@@ -11,7 +11,7 @@ from ._chemfiles import ELEMENTS
 
 
 if TYPE_CHECKING:
-    from metatensor import TensorMap
+    from metatensor import TensorBlock, TensorMap
     from metatomic import System
 
 
@@ -93,10 +93,18 @@ def metatensor_to_property(
     """
     if len(tensor) != 1:
         raise ValueError("expected a TensorMap with exactly one block")
-    block = tensor.block(0)
+    return _block_to_property(tensor.block(0), structures, environments)
+
+
+def _block_to_property(
+    block: TensorBlock,
+    structures: Sequence[Sized],
+    environments: Sequence[Environment] | None,
+) -> _Property:
     if block.gradients_list():
         raise ValueError("extract TensorMap gradients explicitly before conversion")
-    names = block.samples.names
+    labels = block.samples
+    names = labels.names
     target: Literal["atom", "structure"]
     samples: list[tuple[int, ...]]
     if names == ["system"]:
@@ -112,7 +120,7 @@ def metatensor_to_property(
                 raise ValueError(f"invalid environment ({i}, {a})")
     else:
         raise ValueError("TensorMap samples must be 'system' or 'system, atom'")
-    rows = {tuple(row): i for i, row in enumerate(_as_numpy(block.samples.values))}
+    rows = {tuple(row): i for i, row in enumerate(_as_numpy(labels.values))}
     try:
         indices = [rows[sample] for sample in samples]
     except KeyError as error:
@@ -138,14 +146,16 @@ def _metatomic_extract_properties(
     properties: dict[str, _Property] = {}
     for name in sorted(names if only is None else names.intersection(only)):
         tensors = [s.custom_data(name) for s in structures]
+        if any(len(t) != 1 for t in tensors):
+            raise ValueError("expected a TensorMap with exactly one block")
+        blocks = [t.block(0) for t in tensors]
         parts = [
-            metatensor_to_property(t, [s])
-            for t, s in zip(tensors, structures, strict=True)
+            _block_to_property(b, [s], None)
+            for b, s in zip(blocks, structures, strict=True)
         ]
-        first = tensors[0].block(0)
+        first = blocks[0]
         components, labels = first.components, first.properties
-        for tensor, part in zip(tensors[1:], parts[1:], strict=True):
-            block = tensor.block(0)
+        for block, part in zip(blocks[1:], parts[1:], strict=True):
             if (
                 part["target"] != parts[0]["target"]
                 or block.components != components

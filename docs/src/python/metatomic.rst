@@ -63,3 +63,23 @@ Conversion conventions
   selection/conversion; they are not silently discarded.
 * NumPy and host-convertible Torch/JAX arrays are supported. Conversion does not
   change the input System's array backend. Raw DLPack arrays must be host-accessible.
+
+Batched properties
+------------------
+
+For large datasets, keep properties spanning many systems in a TensorMap instead
+of splitting them into custom data on each System. This avoids per-System tensor
+construction and metadata access. Sample labels use indices into ``structures``;
+atomic properties also include an ``atom`` column. Convert each batched output once:
+
+.. code-block:: python
+
+    properties = {
+        name: chemiscope.metatensor_to_property(output, structures)
+        for name, output in outputs.items()
+    }
+    chemiscope.write_input("dataset.json", structures, properties=properties)
+
+Here ``outputs`` maps property names to single-block TensorMaps. For large input
+files, read bounded batches and export each batch separately; system sample indices
+must refer to the structures in that batch.
