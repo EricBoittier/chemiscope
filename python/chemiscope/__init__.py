@@ -14,6 +14,7 @@ from .structures import (  # noqa: F401
     ase_vectors_to_arrows,
     ellipsoid_from_tensor,
     extract_properties,
+    metatensor_to_property,
 )
 from .version import __version__  # noqa: F401
 from .widget import show, show_input  # noqa

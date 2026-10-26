@@ -17,6 +17,10 @@ Data management
 
 .. autofunction:: chemiscope.extract_properties
 
+.. autofunction:: chemiscope.metatensor_to_property
+
+
+
 .. autofunction:: chemiscope.all_atomic_environments
 
 .. autofunction:: chemiscope.ellipsoid_from_tensor
